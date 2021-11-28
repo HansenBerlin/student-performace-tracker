@@ -369,7 +369,7 @@ RETURNS DECIMAL(3, 2)
         SELECT SUM(modul_gewichtung)
         FROM (
             SELECT DISTINCT *
-            FROM Kursnote
+            FROM kursnote
             WHERE fk_modul = Modul_ID AND fk_matnr = Matrikelnummer
         ) AS abc
     );
