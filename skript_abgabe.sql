@@ -26,7 +26,6 @@
 -----------------------------------------------------------------
 -----------------------------------------------------------------
 */
-
 DROP DATABASE IF EXISTS performancetrackerhwr;
 CREATE DATABASE IF NOT EXISTS performancetrackerhwr;
 USE performancetrackerhwr;
@@ -54,7 +53,7 @@ CREATE TABLE jahrgang
 (
     id        INT AUTO_INCREMENT PRIMARY KEY,
     jahr      CHAR(2) NOT NULL,
-    sem_so_wi CHAR    NOT NULL
+    sem_so_wi CHAR(1)    NOT NULL
 );
 
 CREATE TABLE kurs_buchstabe
@@ -465,15 +464,15 @@ RETURNS DECIMAL(3, 2)
     DETERMINISTIC BEGIN
     RETURN (
         SELECT SUM(N.gewichtung)
-        FROM Note_nach_Leistungstyp AS N
+        FROM note_nach_leistungstyp AS N
         WHERE N.fk_kurs = Kurs_ID AND N.fk_matnr = Matrikelnummer
     );
 END //
 DELIMITER ;
 
 
-DROP VIEW IF EXISTS Kursnote;
-CREATE VIEW Kursnote AS SELECT DISTINCT
+DROP VIEW IF EXISTS kursnote;
+CREATE VIEW kursnote AS SELECT DISTINCT
     fk_kurs, fk_matnr, kurs.fk_modul, kurs.modul_gewichtung, FORMAT(
         Kursnote -(1 / 15) * (IFNULL(student_in_kurs.aktive_mitarbeit_bonus, 0) + (
                 IF(calc_penalty_on_course_grade(fk_kurs, fk_matnr)
@@ -481,24 +480,24 @@ CREATE VIEW Kursnote AS SELECT DISTINCT
 FROM (SELECT fk_kurs, fk_matnr, (FORMAT((SUM(NoteGewichtet)), 2)) AS Kursnote
     FROM (
         SELECT fk_kurs, fk_matnr, (Note * (gewichtung / get_leistungstypen_gewicht(
-                        Note_nach_Leistungstyp.fk_matnr,
-                        Note_nach_Leistungstyp.fk_kurs))) AS NoteGewichtet
-        FROM Note_nach_Leistungstyp) AS abc
+                        note_nach_leistungstyp.fk_matnr,
+                        note_nach_leistungstyp.fk_kurs))) AS NoteGewichtet
+        FROM note_nach_leistungstyp) AS abc
 GROUP BY fk_kurs, fk_matnr) AS def
 INNER JOIN student_in_kurs USING(fk_matnr, fk_kurs)
 JOIN kurs On kurs.id = student_in_kurs.fk_kurs;
 
 
-DROP VIEW IF EXISTS Modulnote;
-CREATE VIEW Modulnote AS
-    SELECT fk_matnr, fk_modul, FORMAT(SUM(a), 1) AS Modulnote
+DROP VIEW IF EXISTS modulnote;
+CREATE VIEW modulnote AS
+    SELECT fk_matnr, fk_modul, FORMAT(SUM(a), 1) AS modulnote
     FROM (
-    SELECT DISTINCT Kursnote.fk_matnr, kurs.fk_modul, (
-            Kursnote.Kursnote * (kurs.modul_gewichtung / get_Kurse_gewicht(
-                    Kursnote.fk_matnr,
+    SELECT DISTINCT kursnote.fk_matnr, kurs.fk_modul, (
+            kursnote.Kursnote * (kurs.modul_gewichtung / get_Kurse_gewicht(
+                    kursnote.fk_matnr,
                     kurs.fk_modul))) AS a
-    FROM Kursnote
-    JOIN kurs ON kurs.id = Kursnote.fk_kurs) AS def
+    FROM kursnote
+    JOIN kurs ON kurs.id = kursnote.fk_kurs) AS def
     GROUP BY fk_modul, fk_matnr;
 
 
@@ -1557,7 +1556,9 @@ FROM (
     FROM latedays_merged_overvies lo
              JOIN abgabe_in_kurs ak ON ak.id = lo.abgabe_id
     WHERE fk_team = 5
-      AND kurs_id = 7) l;
+      AND kurs_id = 7
+GROUP BY ak.frist) l
+      GROUP BY l.frist;
 
 
 -- Einzelaufruf Funktion für Berechnung der Strafe auf die Note, Berechnung wie oben
