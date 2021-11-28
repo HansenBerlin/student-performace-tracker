@@ -1553,7 +1553,7 @@ WHERE fk_matnr = 711110 AND fk_kurs = 3;
 -- inkl Berechnung von Härtefällen, Kurslatedays und Leistungslatedays
 SELECT MIN(l.ld_calc) AS latedaysuebrig, l.frist
 FROM (
-    SELECT calc_latedays_left_total(verbrauchteld, latedays_verfuegbar) AS ld_calc, ak.frist
+    SELECT calc_latedays_left_total(SUM(verbrauchteld), latedays_verfuegbar) AS ld_calc, ak.frist
     FROM latedays_merged_overvies lo
              JOIN abgabe_in_kurs ak ON ak.id = lo.abgabe_id
     WHERE fk_team = 5
@@ -1720,3 +1720,12 @@ WHERE id = 1;
 ## Beitrittsanfrage für einen Kurs stellen
 INSERT INTO anfrageaufnahme (fk_kurs, fk_matnr)
 VALUES ('4', '711110');
+
+-- Errechnete Note fürs Modul für Student
+SELECT * FROM modulnote WHERE fk_matnr = 511126 AND fk_modul = 1;
+
+-- Errechnete Note für Kurs für Student
+SELECT fk_matnr, kursnote FROM kursnote WHERE fk_matnr = 511126 AND fk_kurs = 6;
+
+-- Errechnete Noten in Kurs für alle Studenten
+SELECT fk_matnr, kursnote FROM kursnote WHERE fk_kurs = 6;
