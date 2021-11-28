@@ -588,7 +588,59 @@ BEGIN
     END IF;
 END //
 
+## Delete Blocker for Lookup Tables and Templates
+DROP TRIGGER IF EXISTS    `delete_on_leistungstyp`;
+DELIMITER &&
+CREATE TRIGGER delete_on_leistungstyp BEFORE DELETE ON leistungstyp
+FOR EACH ROW 
+Begin
+		SIGNAL SQLSTATE '02000' SET MESSAGE_TEXT = 'Delete cancelled.';
+End&&
 
+
+DROP TRIGGER IF EXISTS    `delete_on_leistung_template`;
+DELIMITER &&
+CREATE TRIGGER delete_on_leistung_template BEFORE DELETE ON leistung_template
+FOR EACH ROW 
+Begin
+		SIGNAL SQLSTATE '02000' SET MESSAGE_TEXT = 'Delete cancelled.';
+End&&
+
+
+DROP TRIGGER IF EXISTS    `delete_on_zugriffsrecht`;
+DELIMITER &&
+CREATE TRIGGER delete_on_zugriffsrecht BEFORE DELETE ON zugriffsrecht
+FOR EACH ROW 
+Begin
+		SIGNAL SQLSTATE '02000' SET MESSAGE_TEXT = 'Delete cancelled.';
+End&&
+
+
+DROP TRIGGER IF EXISTS    `delete_on_fachrichtung`;
+DELIMITER &&
+CREATE TRIGGER delete_on_fachrichtung BEFORE DELETE ON fachrichtung
+FOR EACH ROW 
+Begin
+		SIGNAL SQLSTATE '02000' SET MESSAGE_TEXT = 'Delete cancelled.';
+End&&
+
+
+DROP TRIGGER IF EXISTS    `delete_on_jahrgang`;
+DELIMITER &&
+CREATE TRIGGER delete_on_jahrgang BEFORE DELETE ON jahrgang
+FOR EACH ROW 
+Begin
+		SIGNAL SQLSTATE '02000' SET MESSAGE_TEXT = 'Delete cancelled.';
+End&&
+
+
+DROP TRIGGER IF EXISTS    `delete_on_kurs_buchstabe`;
+DELIMITER &&
+CREATE TRIGGER delete_on_kurs_buchstabe BEFORE DELETE ON kurs_buchstabe
+FOR EACH ROW 
+Begin
+		SIGNAL SQLSTATE '02000' SET MESSAGE_TEXT = 'Delete cancelled.';
+End&&
 /*
 --------------------------------------------------
     DUMMY DATA
