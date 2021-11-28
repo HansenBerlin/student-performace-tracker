@@ -469,6 +469,7 @@ RETURNS DECIMAL(3, 2)
         WHERE N.fk_kurs = Kurs_ID AND N.fk_matnr = Matrikelnummer
     );
 END //
+DELIMITER ;
 
 
 DROP VIEW IF EXISTS Kursnote;
@@ -576,7 +577,8 @@ BEGIN
 END //
 
 
-DROP TRIGGER IF EXISTS check_person_is_from_hwr_before_insert_on_person;
+DELIMITER //
+DROP TRIGGER IF EXISTS check_person_is_from_hwr_before_insert_on_person //
 CREATE TRIGGER check_person_is_from_hwr_before_insert_on_person
     BEFORE INSERT ON person
     FOR EACH ROW
