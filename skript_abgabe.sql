@@ -26,7 +26,6 @@
 -----------------------------------------------------------------
 -----------------------------------------------------------------
 */
-
 DROP DATABASE IF EXISTS performancetrackerhwr;
 CREATE DATABASE IF NOT EXISTS performancetrackerhwr;
 USE performancetrackerhwr;
@@ -470,15 +469,15 @@ RETURNS DECIMAL(3, 2)
     DETERMINISTIC BEGIN
     RETURN (
         SELECT SUM(N.gewichtung)
-        FROM Note_nach_Leistungstyp AS N
+        FROM note_nach_leistungstyp AS N
         WHERE N.fk_kurs = Kurs_ID AND N.fk_matnr = Matrikelnummer
     );
 END //
 DELIMITER ;
 
 
-DROP VIEW IF EXISTS Kursnote;
-CREATE VIEW Kursnote AS SELECT DISTINCT
+DROP VIEW IF EXISTS kursnote;
+CREATE VIEW kursnote AS SELECT DISTINCT
     fk_kurs, fk_matnr, kurs.fk_modul, kurs.modul_gewichtung, FORMAT(
         Kursnote -(1 / 15) * (IFNULL(student_in_kurs.aktive_mitarbeit_bonus, 0) + (
                 IF(calc_penalty_on_course_grade(fk_kurs, fk_matnr)
@@ -487,24 +486,24 @@ CREATE VIEW Kursnote AS SELECT DISTINCT
 FROM (SELECT fk_kurs, fk_matnr, (FORMAT((SUM(NoteGewichtet)), 2)) AS Kursnote
     FROM (
         SELECT fk_kurs, fk_matnr, (Note * (gewichtung / get_leistungstypen_gewicht(
-                        Note_nach_Leistungstyp.fk_matnr,
-                        Note_nach_Leistungstyp.fk_kurs))) AS NoteGewichtet
-        FROM Note_nach_Leistungstyp) AS abc
+                        note_nach_leistungstyp.fk_matnr,
+                        note_nach_leistungstyp.fk_kurs))) AS NoteGewichtet
+        FROM note_nach_leistungstyp) AS abc
 GROUP BY fk_kurs, fk_matnr) AS def
 INNER JOIN student_in_kurs USING(fk_matnr, fk_kurs)
 JOIN kurs On kurs.id = student_in_kurs.fk_kurs;
 
 
-DROP VIEW IF EXISTS Modulnote;
-CREATE VIEW Modulnote AS
-    SELECT fk_matnr, fk_modul, FORMAT(SUM(a), 1) AS Modulnote
+DROP VIEW IF EXISTS modulnote;
+CREATE VIEW modulnote AS
+    SELECT fk_matnr, fk_modul, FORMAT(SUM(a), 1) AS modulnote
     FROM (
-    SELECT DISTINCT Kursnote.fk_matnr, kurs.fk_modul, (
-            Kursnote.Kursnote * (kurs.modul_gewichtung / get_Kurse_gewicht(
-                    Kursnote.fk_matnr,
+    SELECT DISTINCT kursnote.fk_matnr, kurs.fk_modul, (
+            kursnote.Kursnote * (kurs.modul_gewichtung / get_Kurse_gewicht(
+                    kursnote.fk_matnr,
                     kurs.fk_modul))) AS a
-    FROM Kursnote
-    JOIN kurs ON kurs.id = Kursnote.fk_kurs) AS def
+    FROM kursnote
+    JOIN kurs ON kurs.id = kursnote.fk_kurs) AS def
     GROUP BY fk_modul, fk_matnr;
 
 
@@ -595,7 +594,59 @@ BEGIN
     END IF;
 END //
 
+## Delete Blocker for Lookup Tables and Templates
+DROP TRIGGER IF EXISTS    `delete_on_leistungstyp`;
+DELIMITER &&
+CREATE TRIGGER delete_on_leistungstyp BEFORE DELETE ON leistungstyp
+FOR EACH ROW
+Begin
+		SIGNAL SQLSTATE '02000' SET MESSAGE_TEXT = 'Delete cancelled.';
+End&&
 
+
+DROP TRIGGER IF EXISTS    `delete_on_leistung_template`;
+DELIMITER &&
+CREATE TRIGGER delete_on_leistung_template BEFORE DELETE ON leistung_template
+FOR EACH ROW
+Begin
+		SIGNAL SQLSTATE '02000' SET MESSAGE_TEXT = 'Delete cancelled.';
+End&&
+
+
+DROP TRIGGER IF EXISTS    `delete_on_zugriffsrecht`;
+DELIMITER &&
+CREATE TRIGGER delete_on_zugriffsrecht BEFORE DELETE ON zugriffsrecht
+FOR EACH ROW
+Begin
+		SIGNAL SQLSTATE '02000' SET MESSAGE_TEXT = 'Delete cancelled.';
+End&&
+
+
+DROP TRIGGER IF EXISTS    `delete_on_fachrichtung`;
+DELIMITER &&
+CREATE TRIGGER delete_on_fachrichtung BEFORE DELETE ON fachrichtung
+FOR EACH ROW
+Begin
+		SIGNAL SQLSTATE '02000' SET MESSAGE_TEXT = 'Delete cancelled.';
+End&&
+
+
+DROP TRIGGER IF EXISTS    `delete_on_jahrgang`;
+DELIMITER &&
+CREATE TRIGGER delete_on_jahrgang BEFORE DELETE ON jahrgang
+FOR EACH ROW
+Begin
+		SIGNAL SQLSTATE '02000' SET MESSAGE_TEXT = 'Delete cancelled.';
+End&&
+
+
+DROP TRIGGER IF EXISTS    `delete_on_kurs_buchstabe`;
+DELIMITER &&
+CREATE TRIGGER delete_on_kurs_buchstabe BEFORE DELETE ON kurs_buchstabe
+FOR EACH ROW
+Begin
+		SIGNAL SQLSTATE '02000' SET MESSAGE_TEXT = 'Delete cancelled.';
+End&&
 /*
 --------------------------------------------------
     DUMMY DATA
@@ -1526,10 +1577,9 @@ VALUES
 */
 
 -- Anzeige von Abgaben für in einem Kurs noch keine Einreichungen vorliegen, mit Frist
-
-SELECT frist, fk_leistungstyp
-FROM abgabe_in_kurs a
-INNER JOIN leistung_template lt ON a.fk_leistung_template = lt.id
+SELECT frist, fk_leistungstyp FROM abgabe_in_kurs a
+INNER JOIN leistung_template lt
+    ON a.fk_leistung_template = lt.id
 WHERE a.id NOT IN (
     SELECT fk_abgabe_in_kurs
     FROM leistung)
