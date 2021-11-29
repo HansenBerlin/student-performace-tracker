@@ -362,16 +362,21 @@ BEGIN
 END //
 
 
-DROP FUNCTION IF EXISTS get_Kurse_gewicht //
-CREATE FUNCTION get_Kurse_gewicht(Matrikelnummer INT, Modul_ID INT)
-RETURNS DECIMAL(3, 2)
-    DETERMINISTIC BEGIN
+
+DROP FUNCTION IF EXISTS get_kurse_gewicht //
+CREATE FUNCTION get_kurse_gewicht(matrikelnummer INT, modul_id INT)
+    RETURNS DECIMAL(3, 2)
+    DETERMINISTIC
+BEGIN
     RETURN (
         SELECT SUM(modul_gewichtung)
         FROM (
-            SELECT DISTINCT *
-            FROM Kursnote
-            WHERE fk_modul = Modul_ID AND fk_matnr = Matrikelnummer
+            SELECT DISTINCT kurs.id, kurs.modul_gewichtung
+            FROM kurs
+                     JOIN abgabe_in_kurs ON abgabe_in_kurs.fk_kurs = kurs.id
+                     JOIN leistung ON leistung.fk_abgabe_in_kurs = abgabe_in_kurs.id
+            WHERE fk_modul = modul_id
+              AND fk_matnr = matrikelnummer
         ) AS abc
     );
 END //
@@ -406,17 +411,18 @@ DELIMITER ;
 -- View mit Übersicht aller Latedays Variablen
 DROP VIEW IF EXISTS latedays_merged_overvies;
 CREATE VIEW latedays_merged_overvies AS (
-SELECT kurs_id, abgabe_id, k.fk_matnr, k.fk_team, k.latedays_verfuegbar, fk_leistungstyp,
+SELECT kurs_id, abgabe_id, leistung_id, k.fk_matnr, k.fk_team, k.latedays_verfuegbar, fk_leistungstyp,
     calc_latedays_used(difference, latedays)       AS verbrauchteld,
     calc_penalty_on_leistung(difference, latedays) AS malus,
        latedays AS ld_pro_leistung
 FROM (
-    SELECT p.fk_leistungstyp, p.fk_team, abgabe_id, kurs_id, p.fk_matnr, p.latedays, p.latedays_verfuegbar,
+    SELECT p.fk_leistungstyp, p.fk_team, abgabe_id, leistung_id, kurs_id, p.fk_matnr, p.latedays, p.latedays_verfuegbar,
         (round_days_diff(p.frist, p.abgabe_ist) + frist_verlaengerung_tage)
             AS difference
     FROM (
         SELECT frist, abgabe_ist, fk_matnr, l.fk_team, latedays_verfuegbar, frist_verlaengerung_tage, fk_leistungstyp,
-            latedays, k2.id AS kurs_id, a.id  AS abgabe_id FROM abgabe_in_kurs a
+            latedays, k2.id AS kurs_id, a.id AS abgabe_id, l.id AS leistung_id
+            FROM abgabe_in_kurs a
                  JOIN leistung l ON a.id = l.fk_abgabe_in_kurs
                  JOIN leistung_template lt ON a.fk_leistung_template = lt.id
                  JOIN kurs k2 ON a.fk_kurs = k2.id) p) k
@@ -430,6 +436,8 @@ FROM leistung
          JOIN abgabe_in_kurs ON abgabe_in_kurs.id = leistung.fk_abgabe_in_kurs
          JOIN leistung_template ON leistung_template.id = abgabe_in_kurs.fk_leistung_template
 GROUP BY fk_leistungstyp, fk_matnr, gewichtung, fk_leistung_template, fk_kurs;
+
+SELECT * FROM note_nach_leistungstyp;
 
 
 ##Student lässt sich offene Anfragen für Module anzeigen
@@ -481,6 +489,7 @@ JOIN jahrgang j on k.fk_jahrgang = j.id
 JOIN kurs_buchstabe kb on k.fk_kurs_buchstabe = kb.wert
 JOIN modul m on k.fk_modul = m.id
 JOIN fachrichtung f on m.fk_fachrichtung = f.bezeichnung;
+
 
 DROP VIEW IF EXISTS Kursnote;
 CREATE VIEW Kursnote AS SELECT DISTINCT
@@ -1540,14 +1549,13 @@ WHERE a.id NOT IN (
 
 
 -- Anzeige noch nicht erbrachter Leistungen für Student in Kurs
-SELECT frist, fk_leistungstyp, lt.latedays FROM abgabe_in_kurs a
+SELECT frist, fk_leistungstyp, lt.latedays, a.id AS abgabeId
+FROM abgabe_in_kurs a
 INNER JOIN leistung_template lt
     ON a.fk_leistung_template = lt.id
 WHERE a.id NOT IN (
     SELECT fk_abgabe_in_kurs
-    FROM leistung
-    WHERE fk_matnr = 511127)
-  AND fk_kurs = 7;
+    FROM leistung WHERE fk_matnr = 1 AND a.fk_kurs = 1);
 
 
 -- Abgabe von Student in Kurs mit Berechnung der Differenz früher oder später Abgaben
@@ -1571,17 +1579,130 @@ FROM (
 
 
 -- //////////////////////////////////////////////////////////////////
+
+-- Dashboard: Gesamtnote
+SELECT AVG(modulnote) FROM modulnote WHERE fk_matnr = 511127 GROUP BY fk_matnr;
+
+-- Dashboard Latedays verbraucht
+SELECT SUM(verbrauchteld) FROM latedays_merged_overvies WHERE fk_matnr = 511127 GROUP BY fk_matnr;
+
+-- Dashboard: Reputation
+SELECT SUM(malus) FROM latedays_merged_overvies WHERE fk_matnr = 511127 GROUP BY fk_matnr;
+
+-- Dashboard: Leistungen eingereicht
+SELECT COUNT(*) FROM leistung WHERE fk_matnr = 511127 GROUP BY fk_matnr;
+
+-- Dashboard: offene Abgaben
+SELECT get_works_still_open(511127);
+
+-- Dashboard: nächste Abgabe
+SELECT get_next_due_date(511127);
+
+-- Dashboard: alle
+SELECT * FROM dashboard_overview WHERE matnr = 511127;
+
+
+
+
+-- ////////////////////////////////////////////////////////////
+
+-- ////////////////////////////////////////////////////////////
+-- Dashboard functions
+
+DROP VIEW IF EXISTS dashboard_overview;
+CREATE VIEW dashboard_overview AS
+SELECT matnr,
+       FORMAT((SELECT AVG(modulnote) FROM modulnote WHERE fk_matnr = s.matnr GROUP BY fk_matnr), 2) AS grade,
+        (SELECT SUM(verbrauchteld) FROM latedays_merged_overvies WHERE fk_matnr = s.matnr GROUP BY fk_matnr) AS ld_used,
+        (SELECT SUM(malus) FROM latedays_merged_overvies WHERE fk_matnr = s.matnr GROUP BY fk_matnr) AS rep,
+        (SELECT COUNT(*) FROM leistung WHERE fk_matnr = s.matnr GROUP BY fk_matnr) AS leistungen_commited,
+        (SELECT get_works_still_open(s.matnr)) AS leistungen_open,
+        (SELECT get_next_due_date(s.matnr)) AS next_due
+       FROM student s;
+
+
+DELIMITER //
+DROP FUNCTION IF EXISTS get_works_still_open //
+CREATE FUNCTION get_works_still_open(matrikelnummer INT)
+    RETURNS INT
+    DETERMINISTIC
+BEGIN
+    RETURN (
+        SELECT COUNT(*)
+        FROM (
+            SELECT COUNT(abgabe_id) AS test
+            FROM (
+                SELECT fk_matnr AS matnr, sik.fk_kurs, frist, id AS abgabe_id
+                FROM abgabe_in_kurs
+                         JOIN student_in_kurs sik
+                              ON abgabe_in_kurs.fk_kurs = sik.fk_kurs
+                WHERE fk_matnr = matrikelnummer
+                UNION
+                SELECT NULL AS matnr, fk_kurs, frist, a.id AS abgabeid
+                FROM abgabe_in_kurs a
+                         INNER JOIN leistung_template lt
+                                    ON a.fk_leistung_template = lt.id) s
+            GROUP BY abgabe_id) x
+        WHERE test = 1
+        GROUP BY test
+    );
+END //
+
+DELIMITER //
+DROP FUNCTION IF EXISTS get_next_due_date //
+CREATE FUNCTION get_next_due_date(matrikelnummer INT)
+    RETURNS DATETIME
+    DETERMINISTIC
+BEGIN
+    RETURN (
+        SELECT MIN(frist)
+        FROM (
+            SELECT COUNT(*), frist
+            FROM (
+                SELECT COUNT(abgabe_id) AS test, frist
+                FROM (
+                    SELECT fk_matnr AS matnr, sik.fk_kurs, frist, id AS abgabe_id
+                    FROM abgabe_in_kurs
+                             JOIN student_in_kurs sik
+                                  ON abgabe_in_kurs.fk_kurs = sik.fk_kurs
+                    WHERE fk_matnr = matrikelnummer
+                    UNION
+                    SELECT NULL AS matnr, fk_kurs, frist, a.id AS abgabeid
+                    FROM abgabe_in_kurs a
+                             INNER JOIN leistung_template lt
+                                        ON a.fk_leistung_template = lt.id) s
+                GROUP BY abgabe_id) x
+            WHERE test = 1
+            GROUP BY test, frist) c
+    );
+END //
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 -- Anzeige noch nicht erbrachter Leistungen für Student in Kurs
 -- restliche latedays Kurs
 DROP PROCEDURE IF EXISTS show_due_dates_with_late_days //
 CREATE PROCEDURE show_due_dates_with_late_days(p_mat_nr INT, p_kurs_id INT)
 BEGIN
-    SELECT verbrauchteld AS ld_used, fk_leistungstyp, frist, ld_pro_leistung
+SELECT (
+    SELECT calc_latedays_left_total(SUM(verbrauchteld), latedays_verfuegbar)
     FROM latedays_merged_overvies lo
              JOIN abgabe_in_kurs ak ON ak.id = lo.abgabe_id
-    WHERE kurs_id = p_kurs_id AND fk_matnr = p_mat_nr
-UNION
-SELECT 0, fk_leistungstyp, frist, lt.latedays FROM abgabe_in_kurs a
+    WHERE fk_matnr = p_mat_nr
+      AND kurs_id = p_kurs_id) AS leftlatedays
+     , fk_leistungstyp as type, frist as duedate
+FROM abgabe_in_kurs a
 INNER JOIN leistung_template lt
     ON a.fk_leistung_template = lt.id
 WHERE a.id NOT IN (
@@ -1601,6 +1722,13 @@ SELECT calc_latedays_left_total(SUM(verbrauchteld), latedays_verfuegbar) AS ld_c
              JOIN abgabe_in_kurs ak ON ak.id = lo.abgabe_id
     WHERE fk_matnr = 511127
       AND kurs_id = 7;
+
+-- abgegebene Leistungen
+SELECT verbrauchteld AS ld_used, fk_leistungstyp, frist, l.abgabe_ist, l.wert, l.id, l.festgesetzt
+    FROM latedays_merged_overvies lo
+JOIN abgabe_in_kurs ak ON ak.id = lo.abgabe_id
+JOIN leistung l ON lo.leistung_id = l.id
+    WHERE kurs_id = 7 AND lo.fk_matnr = 511127;
 
 
 -- Einzelaufruf Funktion für Berechnung der Strafe auf die Note, Berechnung wie oben

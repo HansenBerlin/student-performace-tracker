@@ -349,7 +349,8 @@ CREATE FUNCTION calc_penalty_on_course_grade(p_course_id INT, p_mat_nr INT)
     DETERMINISTIC
 BEGIN
     DECLARE penalty INT;
-    SET penalty = (SELECT SUM(sum_latedays_and_penalty(verbrauchteld, latedays_verfuegbar, malus))
+    SET penalty = (SELECT SUM(sum_latedays_and_penalty(verbrauchteld,
+                latedays_verfuegbar, malus))
                    FROM latedays_merged_overvies
                    WHERE fk_matnr = p_mat_nr
                      AND kurs_id = p_course_id
@@ -361,17 +362,21 @@ BEGIN
     END IF;
 END //
 
-
-DROP FUNCTION IF EXISTS get_Kurse_gewicht //
-CREATE FUNCTION get_Kurse_gewicht(Matrikelnummer INT, Modul_ID INT)
-RETURNS DECIMAL(3, 2)
-    DETERMINISTIC BEGIN
+DELIMITER //
+DROP FUNCTION IF EXISTS get_kurse_gewicht //
+CREATE FUNCTION get_kurse_gewicht(matrikelnummer INT, modul_id INT)
+    RETURNS DECIMAL(3, 2)
+    DETERMINISTIC
+BEGIN
     RETURN (
         SELECT SUM(modul_gewichtung)
         FROM (
-            SELECT DISTINCT *
-            FROM Kursnote
-            WHERE fk_modul = Modul_ID AND fk_matnr = Matrikelnummer
+            SELECT DISTINCT kurs.id, kurs.modul_gewichtung
+            FROM kurs
+                     JOIN abgabe_in_kurs ON abgabe_in_kurs.fk_kurs = kurs.id
+                     JOIN leistung ON leistung.fk_abgabe_in_kurs = abgabe_in_kurs.id
+            WHERE fk_modul = modul_id
+              AND fk_matnr = matrikelnummer
         ) AS abc
     );
 END //
@@ -477,7 +482,8 @@ CREATE VIEW Kursnote AS SELECT DISTINCT
     fk_kurs, fk_matnr, kurs.fk_modul, kurs.modul_gewichtung, FORMAT(
         Kursnote -(1 / 15) * (IFNULL(student_in_kurs.aktive_mitarbeit_bonus, 0) + (
                 IF(calc_penalty_on_course_grade(fk_kurs, fk_matnr)
-                       >= 0, 0, calc_penalty_on_course_grade(fk_kurs, fk_matnr)))), 1) AS Kursnote
+                       >= 0, 0,
+                    calc_penalty_on_course_grade(fk_kurs, fk_matnr)))), 1) AS Kursnote
 FROM (SELECT fk_kurs, fk_matnr, (FORMAT((SUM(NoteGewichtet)), 2)) AS Kursnote
     FROM (
         SELECT fk_kurs, fk_matnr, (Note * (gewichtung / get_leistungstypen_gewicht(
@@ -1520,9 +1526,10 @@ VALUES
 */
 
 -- Anzeige von Abgaben für in einem Kurs noch keine Einreichungen vorliegen, mit Frist
-SELECT frist, fk_leistungstyp FROM abgabe_in_kurs a
-INNER JOIN leistung_template lt
-    ON a.fk_leistung_template = lt.id
+
+SELECT frist, fk_leistungstyp
+FROM abgabe_in_kurs a
+INNER JOIN leistung_template lt ON a.fk_leistung_template = lt.id
 WHERE a.id NOT IN (
     SELECT fk_abgabe_in_kurs
     FROM leistung)
