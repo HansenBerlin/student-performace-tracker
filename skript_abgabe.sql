@@ -74,7 +74,7 @@ CREATE TABLE leistung_template
     gewichtung      DECIMAL(3, 2) NULL,
     teiler          SMALLINT      NOT NULL,
     CONSTRAINT leistung_template_leistungstyp_bezeichnung_fk
-        FOREIGN KEY (fk_leistungstyp) REFERENCES leistungstyp (bezeichnung) ON DELETE CASCADE ON UPDATE CASCADE
+        FOREIGN KEY (fk_leistungstyp) REFERENCES leistungstyp (bezeichnung) ON UPDATE CASCADE
 );
 
 CREATE TABLE modul
@@ -84,7 +84,7 @@ CREATE TABLE modul
     modulnummer     INT(3)    NOT NULL,
     beschreibung    CHAR(255) NULL,
     CONSTRAINT modul_fachrichtung_fk
-        FOREIGN KEY (fk_fachrichtung) REFERENCES fachrichtung (bezeichnung) ON DELETE CASCADE ON UPDATE CASCADE
+        FOREIGN KEY (fk_fachrichtung) REFERENCES fachrichtung (bezeichnung) ON UPDATE CASCADE
 );
 
 CREATE TABLE kurs
@@ -97,9 +97,9 @@ CREATE TABLE kurs
     modul_gewichtung    DECIMAL(3, 2) NOT NULL,
     latedays_verfuegbar SMALLINT      NULL,
     CONSTRAINT kurs_ibfk_1
-        FOREIGN KEY (fk_jahrgang) REFERENCES jahrgang (id) ON DELETE CASCADE ON UPDATE CASCADE,
+        FOREIGN KEY (fk_jahrgang) REFERENCES jahrgang (id) ON UPDATE CASCADE,
     CONSTRAINT kurs_ibfk_2
-        FOREIGN KEY (fk_kurs_buchstabe) REFERENCES kurs_buchstabe (wert) ON DELETE CASCADE ON UPDATE CASCADE,
+        FOREIGN KEY (fk_kurs_buchstabe) REFERENCES kurs_buchstabe (wert) ON UPDATE CASCADE,
     CONSTRAINT kurs_ibfk_3
         FOREIGN KEY (fk_modul) REFERENCES modul (id) ON DELETE CASCADE ON UPDATE CASCADE
 );
@@ -114,7 +114,7 @@ CREATE TABLE abgabe_in_kurs
     CONSTRAINT abgabe_kurs_id_fk
         FOREIGN KEY (fk_kurs) REFERENCES kurs (id) ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT abgabe_leistung_template_id_fk
-        FOREIGN KEY (fk_leistung_template) REFERENCES leistung_template (id) ON DELETE CASCADE ON UPDATE CASCADE
+        FOREIGN KEY (fk_leistung_template) REFERENCES leistung_template (id) ON UPDATE CASCADE
 );
 
 CREATE TABLE person
@@ -132,7 +132,7 @@ CREATE TABLE student
     CONSTRAINT student_person_mail_fk
         FOREIGN KEY (fk_mail) REFERENCES person (mail) ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT student_fachrichtung_fk
-        FOREIGN KEY (fk_fachrichtung) REFERENCES fachrichtung (bezeichnung) ON DELETE CASCADE ON UPDATE CASCADE
+        FOREIGN KEY (fk_fachrichtung) REFERENCES fachrichtung (bezeichnung) ON UPDATE CASCADE
 );
 
 CREATE TABLE aktive_mitarbeit_in_kurs
@@ -188,7 +188,7 @@ CREATE TABLE account
     fk_mail       CHAR(50)  NOT NULL,
     session_token CHAR(255) NOT NULL,
     CONSTRAINT account_person_mail_fk
-        FOREIGN KEY (fk_mail) REFERENCES person (mail)
+        FOREIGN KEY (fk_mail) REFERENCES person (mail) ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 CREATE TABLE dozent
